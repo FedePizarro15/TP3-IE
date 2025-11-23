@@ -1,25 +1,30 @@
-import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import seaborn as sns
 
-from tp3 import CONFIG_1
+from matplotlib.lines import Line2D
+from matplotlib.patches import Ellipse
+
+from tp3 import CONFIG_1, CONFIG_2, CONFIG_3, CONFIG_4
 from utils import *
 
-P = (100, 50)
+config = dict[str, dict]
 
-def solve_ls(config: dict[str, dict]):
+def get_data(config: config):
+    x = np.array([v['pos'][0] for v in config.values()])
+    y = np.array([v['pos'][1] for v in config.values()])
+    theta = np.array([v['angulo'] for v in config.values()])
+    
+    return x, y, theta
+
+def solve_ls(x: list[float], y: list[float], theta: list[float]) -> tuple[float, float]:
     h_rows = []
     z_rows = []
 
-    for _, value in config.items():
-        xi, yi = value['pos']
-        thetai = value['angulo']
-                
-        h_i = [1, -np.tan(thetai)]
+    for x_i, y_i, theta_i in zip(x, y, theta):                
+        h_i = [1, -np.tan(theta_i)]
         h_rows.append(h_i)
         
-        z_i = xi - yi * np.tan(thetai)
+        z_i = x_i - y_i * np.tan(theta_i)
         z_rows.append(z_i)
 
     h = np.array(h_rows) # Dimensión (M, 2)
@@ -33,40 +38,120 @@ def solve_ls(config: dict[str, dict]):
     
     p_hat = xtx_inv @ h_T @ z
 
-    p_hat = np.round(p_hat, 2)
-
     return tuple(p_hat)
-    
-def get_data(config: dict[str, dict]):
-    data = {}
-    
-    for key, value in config.items():
-        pos = value['pos']
-        data[key] = pos
-    
-    df = pd.DataFrame.from_dict(data, orient='index', columns=['x', 'y'])
-    df.index.name = 'Positions'
-    
-    return df
 
-def plot_prediction(config: dict[str, dict], true_pos: tuple[float, float] = P):
-    x_p, y_p = solve_ls(config)
-    x_p, y_p = float(x_p), float(y_p)
+def draw_confidence_ellipse(ax: plt.Axes, x_data: list[float], y_data: list[float], n_std: float = 2.0):
+    if len(x_data) < 2: return
+
+    cov = np.cov(x_data, y_data)
     
-    display_text(f'Referencias: CONFIG_1, P: {true_pos}, Predicciones: {x_p, y_p}', level=3)
+    vals, vecs = np.linalg.eigh(cov)
     
-    data = get_data(config)
+    order = vals.argsort()[::-1]
+    vals = vals[order]
+    vecs = vecs[:, order]
     
-    x = data['x']
-    y = data['y']
+    theta = np.degrees(np.arctan2(*vecs[:,0][::-1]))
     
-    plt.scatter(x=x, y=y, c='blue', marker='o', s=60, label='Referencias')
-    plt.scatter(x=true_pos[0], y=true_pos[1], c='black', marker='o', s=100, label='Real (P)')
-    plt.scatter(x=x_p, y=y_p, c='red', marker='x', s=80, linewidths=2, label='Estimación (LS)')
+    width, height = 2 * n_std * np.sqrt(vals)
     
-    plt.xlabel('x')
-    plt.ylabel('y')
+    ellipse = Ellipse(xy=(np.mean(x_data), np.mean(y_data)),
+                      width=width, height=height,
+                      angle=theta, edgecolor='green', facecolor='none', linestyle='--',
+                      label='Confidence Ellipse (95%)', linewidth=2, alpha=0.8, zorder=0)
+    
+    ax.add_patch(ellipse)
+
+def estimate_position(config: config = CONFIG_1) -> None:
+    x_true, y_true = (100, 50)
+    
+    x_ref, y_ref, thetas = get_data(config)
+    
+    x_pred, y_pred = solve_ls(x_ref, y_ref, thetas)
+    
+    plt.scatter(x_ref, y_ref, c='blue', marker='o', s=60, label='Referencias')
+    plt.scatter(x_true, y_true, c='black', marker='o', s=100, label='Real (P)')
+    plt.scatter(x_pred, y_pred, c='red', marker='x', s=80, linewidths=2, label='Estimación (LS)')
+    
+    x_pred, y_pred = np.round((x_pred, y_pred), 2).tolist()
+
+    display_text(f'Predicción {x_pred, y_pred}')
+
+    plt.xlabel('Coordenada x')
+    plt.ylabel('Coordenada y')
     plt.legend()
     plt.grid(True, linestyle='--', alpha=0.6)
     
     plt.show()
+    
+def setup_base_plot(ax: plt.Axes, x_ref, y_ref, true_pos: tuple[float, float] = (100, 50)) -> None:
+    ax.scatter(x_ref, y_ref, c='blue', marker='o', s=60, label='Referencias')
+    ax.scatter(true_pos[0], true_pos[1], c='black', marker='o', s=100, label='Real (P)')
+    
+    ax.set_xlabel('Coordenada x')
+    ax.set_ylabel('Coordenada y')
+    
+    ax.grid(True, linestyle='--', alpha=0.6)
+
+def noisy_estimations(config: config = CONFIG_1, variances: list[int] = [4, 25, 100], n: int = 50) -> None:
+    if len(variances) > 1:
+        display_text(f'{n} Estimaciones con Ruido - (Δx, Δy ∼ N(0, σ²))')
+            
+    x_ref, y_ref, thetas = get_data(config)
+    
+    for var in variances:
+        if len(variances) > 1:
+            display_text(f'σ² = {var}', level=3)
+        
+        sigma = np.sqrt(var) # Desviación estándar
+        
+        x_predictions = []
+        y_predictions = []
+        
+        for _ in range(n):            
+            x_noise = np.random.normal(0, sigma, size=len(x_ref))
+            y_noise = np.random.normal(0, sigma, size=len(y_ref))
+            
+            x_ref_noisy = x_ref + x_noise
+            y_ref_noisy = y_ref + y_noise
+            
+            x_pred, y_pred = solve_ls(x_ref_noisy, y_ref_noisy, thetas)
+            
+            x_predictions.append(x_pred)
+            y_predictions.append(y_pred)
+    
+        fig, ax = plt.subplots(figsize=(8, 6))
+        
+        setup_base_plot(ax, x_ref, y_ref)
+        
+        ax.scatter(x_predictions, y_predictions, c='red', marker='x', s=80, linewidths=2, label='Estimación (LS)', alpha=0.5)
+        
+        draw_confidence_ellipse(ax, x_predictions, y_predictions, n_std=2.0)
+                
+        ax.legend()
+                
+        ax.legend()
+        plt.show()
+        
+def condition_number(matrix: np.ndarray):
+    matrix_inv = np.linalg.pinv(matrix)
+    
+    norm_matrix = np.linalg.norm(matrix, ord=2)
+    norm_matrix_inv = np.linalg.norm(matrix_inv, ord=2)
+    
+    return norm_matrix * norm_matrix_inv
+        
+def estimate_positions(configs: list[config] = [CONFIG_2, CONFIG_3, CONFIG_4], variance: int = 4, n: int = 50):
+    display_text(f'{n} Estimaciones con Ruido - (Δx, Δy ∼ N(0, {variance}))')
+
+    for i, config in enumerate(configs):        
+        _, _, thetas = get_data(config)
+        h = np.column_stack((np.ones(len(thetas)), -np.tan(thetas)))
+        k = condition_number(h).round(2)
+        
+        if k > 10:
+            display_text(f'config_{i + 2} - κ = {k} > 10 - Mal condicionada', level=3)
+        else:
+            display_text(f'config_{i + 2} - κ = {k} < 10 - Bien condicionada', level=3)
+        
+        noisy_estimations(config, [variance])
