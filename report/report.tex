@@ -79,10 +79,175 @@ Abstract
 
 \section*{Introducción}
 
-\section*{Desarrollo}
+% Este párrafo esta bien acá o es mejor ponerlo en el abstract?
+% Capaz en el abstract es mejor algo con resultados más específicos
 
+En el presente trabajo práctico, nos enfocamos en localizar un objetivo por medio del método de la triangulación, utilizando mediciones angulares desde múltiples referencias, a las cuales denominaremos anclas, para estimar la posición de un punto desconocido. Dado que las mediciones reales siempre presentan ruido e incertidumbre, el sistema se plantea como un problema de regresión lineal sobredeterminado, el cual se resuelve mediante el método de Cuadrados Mínimos (Least Squares) para obtener una estimación óptima.
+
+Consideramos un escenario en el plano cartesiano donde se desea hallar la posición desconocida de un objetivo, denotada como el vector $\mathbf{p} = (x, y)$.
+
+Para ello, disponemos de $M$ puntos de referencia o ``anclas'' con posiciones conocidas, denotadas como $\mathbf{p}_i = (x_i, y_i)$ para $i = 1, \dots, M$. Desde la posición del objetivo se miden los ángulos $\theta_i$ relativos a cada ancla.
+
+En este contexto, es fundamental distinguir la naturaleza de las variables. Los datos obtenidos por mediciones son las coordenadas de las anclas ($x_i$, $y_i$) y los ángulos ($\theta_i$), constituyendo las \textbf{variables observadas}. Por otro lado, buscamos determinar las coordenadas $x$ e $y$, siendo estas las \textbf{incógnitas} del sistema.
+
+Dado que el objetivo es estimar los parámetros del modelo (la posición desconocida $\mathbf{p}$) partiendo de las observaciones, estamos frente a un \textbf{problema inverso}. A diferencia de un problema directo, donde se calculan los datos teóricos (ángulos) a partir de una posición conocida, en este caso debemos inferir la posición que mejor explique los datos recolectados.
+
+Asumimos que los ángulos $\theta_i$ se miden desde una dirección de referencia vertical (Eje Y) en sentido horario hacia la línea de visión que une el objetivo con el ancla $i$.
+
+Bajo esta configuración geométrica, la relación trigonométrica entre las coordenadas y el ángulo medido está dada por la tangente del ángulo, que relaciona el cateto opuesto (diferencia en $x$) con el cateto adyacente (diferencia en $y$):
+
+\begin{equation}
+  \label{rel_trig}
+  \tan(\theta_i) = \frac{x_i - x}{y_i - y}
+\end{equation}
+
+La ecuación anterior no es lineal respecto a las incógnitas $x$ e $y$ debido a la división. Para aplicar técnicas de regresión lineal matricial, es necesario linealizar la expresión. Reordenamos la ecuación obtenemos:
+
+\begin{equation}
+  \label{eq_linealizada}
+  x - y \cdot \tan(\theta_i) = x_i - y_i \cdot \tan(\theta_i)
+\end{equation}
+
+Esta ecuación lineal describe la restricción que impone una sola medición $i$ sobre la posición del objetivo.
+
+Al disponer de $M$ anclas, obtenemos un sistema de ecuaciones lineales que puede expresarse en forma matricial $\mathbf{A}\mathbf{p} = \mathbf{b}$.
+Siendo el vector de incógnitas ($\mathbf{p} \in \mathbb{R}^{2 \times 1}$), el cual contiene las coordenadas a estimar. La matriz de diseño ($\mathbf{A} \in \mathbb{R}^{M \times 2}$) contiene los coeficientes geométricos derivados de los ángulos. Por último, el vector de observaciones ($\mathbf{b} \in \mathbb{R}^{M \times 1}$) contiene los términos independientes calculados a partir de las posiciones de las anclas y los ángulos.
+
+El sistema completo para $M$ mediciones es:
+
+\begin{equation}
+\begin{bmatrix}
+1 & -\tan(\theta_1) \\
+1 & -\tan(\theta_2) \\
+\vdots & \vdots \\
+1 & -\tan(\theta_M)
+\end{bmatrix}
+\cdot
+\begin{bmatrix}
+x \\
+y
+\end{bmatrix}
+=
+\begin{bmatrix}
+x_1 - y_1 \tan(\theta_1) \\
+x_2 - y_2 \tan(\theta_2) \\
+\vdots \\
+x_M - y_M \tan(\theta_M)
+\end{bmatrix}
+\end{equation}
+
+Generalmente, el número de anclas es $M \geq 3$, lo que resulta en un sistema sobredeterminado que no tiene solución exacta debido a errores de medición. Buscamos entonces el vector $\hat{\mathbf{p}}$ que minimice la norma del error al cuadrado $||\mathbf{A}\hat{\mathbf{p}} - \mathbf{b}||^2$.
+
+La solución analítica de Cuadrados Mínimos (LS) se obtiene mediante las ecuaciones normales:
+
+\begin{equation}
+  \label{least_squares_solution}
+  \hat{\mathbf{p}} = (\mathbf{A}^T \mathbf{A})^{-1} \mathbf{A}^T \mathbf{b}
+\end{equation}
+
+Esta expresión, que utiliza la pseudo-inversa de Moore-Penrose, será la base algorítmica utilizada en el desarrollo experimental de este informe para estimar la posición del objetivo.
+
+\newpage
+\section*{Desarrollo Experimental}
+
+Para la resolución computacional del problema de triangulación y la validación del modelo matemático presentado en la introducción, se implementaron algoritmos en lenguaje Python haciendo uso extensivo de la librería NumPy para las operaciones de álgebra lineal y Matplotlib para la visualización de datos.
+
+La experimentación se estructuró en tres fases principales, cada una diseñada para evaluar aspectos específicos del estimador de Cuadrados Mínimos.
+
+\subsection*{Implementación del Estimador de Cuadrados Mínimos}
+
+Se desarrolló la función \texttt{solve\_ls} para resolver el sistema lineal sobredeterminado derivado del modelo geométrico descrito en la introducción. Esta función constituye el núcleo del método de triangulación implementado.
+
+A partir de las coordenadas de las anclas y los ángulos medidos, el algoritmo construye la matriz de diseño y el vector de observaciones según lo establecido en la ecuación \ref{least_squares_solution}. La matriz de diseño contiene en cada fila los coeficientes derivados de los ángulos medidos, mientras que el vector de observaciones se calcula combinando las posiciones de las anclas con las tangentes de los ángulos correspondientes.
+
+El sistema se resuelve aplicando directamente la solución analítica de Cuadrados Mínimos mediante las ecuaciones normales, utilizando operaciones matriciales optimizadas de NumPy para garantizar eficiencia computacional y estabilidad numérica.
+
+\subsection*{Análisis de Sensibilidad al Ruido (Monte Carlo)}
+
+Para evaluar la robustez del estimador bajo condiciones realistas de medición, se implementó la función \texttt{noisy\_estimations}, que permite simular el efecto de la incertidumbre en las posiciones de las anclas.
+
+Se realizó una simulación de Monte Carlo con $N=50$ iteraciones independientes. En cada iteración, las posiciones de las referencias se contaminaron con ruido blanco gaussiano aditivo de media cero y varianza $\sigma^2$, simulando errores aleatorios de medición. Este ruido afecta tanto las coordenadas en $x$ como en $y$ de cada ancla de manera independiente.
+
+Se evaluaron tres escenarios de incertidumbre correspondientes a varianzas $\sigma^2 \in \{4, 25, 100\}$, representando niveles crecientes de error en las mediciones. Para cada escenario, se registraron todas las estimaciones obtenidas y se calcularon estadísticas descriptivas para caracterizar la distribución del error.
+
+Adicionalmente, se graficaron elipses de confianza con un intervalo del 95\%, calculadas a partir de la matriz de covarianza empírica de la nube de puntos estimada. Estas elipses permiten visualizar la dispersión bidimensional del error y su dirección principal, proporcionando una representación geométrica intuitiva de la incertidumbre en la estimación.
+
+\subsection*{Análisis de Condicionamiento Numérico}
+
+Se estudió el impacto de la geometría de las anclas en la estabilidad y precisión de la solución mediante el análisis del condicionamiento de la matriz de diseño.
+
+Se implementó la función \texttt{condition\_number} para calcular el número de condición de la matriz utilizando la norma espectral (norma-2). Este indicador cuantifica cuánto se pueden amplificar los errores de entrada en la solución final: un número de condición cercano a 1 indica un problema bien condicionado, mientras que valores grandes sugieren inestabilidad numérica.
+
+Se estableció un umbral empírico de $\kappa > 10$ para clasificar una configuración como ``mal condicionada'', basándose en criterios estándar de análisis numérico. Las configuraciones con números de condición superiores a este umbral se consideran propensas a amplificación significativa de errores.
+
+Se analizaron las configuraciones \texttt{config\_2}, \texttt{config\_3} y \texttt{config\_4} manteniendo una varianza de ruido fija ($\sigma^2=4$) para aislar el efecto puramente geométrico sobre la calidad de la estimación. Esto permitió evaluar cómo la disposición espacial de las anclas, independientemente del ruido de medición, afecta la estabilidad del sistema y la precisión alcanzable.
+
+\newpage
 \section*{Resultados y Análisis}
 
+Para estimar la posición de $\mathbf{p}$, implementamos el algoritmo de Cuadrados Mínimos descrito en la ecuación \ref{least_squares_solution}. Se realizaron múltiples experimentos variando las configuraciones de anclas y los niveles de ruido aplicado a las mediciones angulares.
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=.85\linewidth]{p_estimation.png}
+\caption{Estimación de la posición $\hat{\mathbf{p}}$ con la configuración \texttt{config\_1}.}
+\label{fig:p_estimation}
+\end{figure}
+
+Podemos observar en la Figura \ref{fig:p_estimation} la estimación obtenida para la configuración inicial (\texttt{config\_1}) sin ruido, donde el objetivo se encuentra en la posición real $\mathbf{p} = (100, 50)$. Esto confirma la certeza del modelo de cuadrados mínimos en condiciones ideales.
+
+Al incorporar ruido gausssiano con varianzas $\sigma^2 = 4, 25, 100$ a las posiciones de las anclas, se realizaron 50 corridas para cada nivel de ruido. Los resultados se presentan en las siguientes gráficas de dispersión:
+
+\begin{figure}[H]
+    \centering
+    \subfloat[$\sigma^2 = 4$]{\includegraphics[width=0.45\textwidth]{noise_v_4.png}}\hfill
+    \subfloat[$\sigma^2 = 25$]{\includegraphics[width=0.45\textwidth]{noise_v_25.png}}\hfill
+    \subfloat[$\sigma^2 = 100$]{\includegraphics[width=0.45\textwidth]{noise_v_100.png}}
+    \caption{Gráficas de dispersión de las estimaciones $\hat{\mathbf{p}}$ bajo diferentes niveles de ruido.}
+    \label{fig:scatter_plots}
+\end{figure}
+
+Es claro apreciar cómo el aumento de la varianza del ruido afecta la dispersión de las estimaciones. El campo de imprecisión se amplía conforme incrementa $\sigma^2$, aunque la media de las estimaciones permanece cercana a la posición real del objetivo, evidenciando la insesgadez del estimador.
+
+Luego, se analizaron las configuraciones \texttt{config\_2}, \texttt{config\_3} y \texttt{config\_4}, todas con un nivel de ruido fijo de $\sigma^2 = 4$. Los resultados obtenidos se resumen en la Tabla \ref{tab:condicionamiento}.
+
+\begin{table}[h!]
+\centering
+\begin{tabular}{|c|c|c|}
+\hline
+\textbf{Configuración} & \textbf{Número de Condición ($\kappa$)} & \textbf{Estado del Problema} \\ \hline
+\texttt{config\_2} & $\approx 7.77$ & Bien condicionado \\ \hline
+\texttt{config\_3} & $> 700$ & Mal condicionado \\ \hline
+\texttt{config\_4} & $> 700$ & Mal condicionado \\ \hline
+\end{tabular}
+\caption{Comparación del número de condición según la configuración de anclas.}
+\label{tab:condicionamiento}
+\end{table}
+
+En la \texttt{config\_2}, obtuvimos un $\kappa \approx 7.77$. Al ser un valor bajo (cercano a 1), el sistema es estable. La pérdida de precisión es manejable y las estimaciones se mantienen razonablemente cerca del valor real.
+
+Por el contrario, en las configuraciones 3 y 4, el número de condición se dispara ($\kappa \approx 701$). Matemáticamente, esto implica una pérdida significativa de cifras significativas en la solución, estimada por la relación:
+\begin{equation}
+    \text{Dígitos perdidos} \approx \log_{10}(\kappa)
+\end{equation}
+Esto indica que el error en los datos de entrada se amplifica en casi 3 órdenes de magnitud en la salida.
+
+Veamos que sucede en las gráficas de dispersión para estas configuraciones mal condicionadas:
+
+\begin{figure}[H]
+    \centering
+    \subfloat[\texttt{config\_2}]{\includegraphics[width=0.45\textwidth]{cond_2.png}}\hfill
+    \subfloat[\texttt{config\_3}]{\includegraphics[width=0.45\textwidth]{cond_3.png}}
+    \subfloat[\texttt{config\_4}]{\includegraphics[width=0.45\textwidth]{cond_4.png}}
+    \caption{Gráficas de dispersión para configuraciones mal condicionadas.}
+    \label{fig:mal_conditioned}
+\end{figure}
+
+La causa de este mal condicionamiento radica en la disposición de las anclas. En los casos mal condicionados, las anclas se encuentran \textbf{alineadas (colineales) o angularmente muy próximas entre sí} respecto al objetivo.
+
+Esto provoca que las líneas de proyección trianguladas sean casi paralelas. Como consecuencia, la incertidumbre deja de distribuirse de forma circular y se ``aplana'' formando una elipse alargada a lo largo del eje de visión, como se evidencia en los gráficos de dispersión de las configuraciones 3 y 4. Una pequeña variación en el ángulo o posición del ancla desplaza drásticamente el punto de intersección (la solución) a lo largo de ese eje, degradando severamente la precisión del sistema.
+
+\newpage
 \section*{Conclusión}
 
 \end{document}
