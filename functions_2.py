@@ -62,8 +62,8 @@ def draw_confidence_ellipse(ax: plt.Axes, x_data: list[float], y_data: list[floa
     
     ax.add_patch(ellipse)
 
-def estimate_position(config: config = CONFIG_1) -> None:
-    x_true, y_true = (100, 50)
+def estimate_position(config: config = CONFIG_1, pos: tuple[float, float] = (100, 50)) -> None:
+    x_true, y_true = pos[0], pos[1]
     
     x_ref, y_ref, thetas = get_data(config)
     
@@ -75,7 +75,10 @@ def estimate_position(config: config = CONFIG_1) -> None:
     
     x_pred, y_pred = np.round((x_pred, y_pred), 2).tolist()
 
-    display_text(f'Predicción {x_pred, y_pred}')
+    display_text('Real')
+    display_text(f'{round(float(x_true), 2), round(float(y_true), 2)}', level=3)
+    display_text(f'Predicción')
+    display_text(f'{x_pred, y_pred}', level=3)
 
     plt.xlabel('Coordenada x')
     plt.ylabel('Coordenada y')
@@ -83,6 +86,8 @@ def estimate_position(config: config = CONFIG_1) -> None:
     plt.grid(True, linestyle='--', alpha=0.6)
     
     plt.show()
+    
+    return x_pred, y_pred
     
 def setup_base_plot(ax: plt.Axes, x_ref, y_ref, true_pos: tuple[float, float] = (100, 50)) -> None:
     ax.scatter(x_ref, y_ref, c='blue', marker='o', s=60, label='Referencias')

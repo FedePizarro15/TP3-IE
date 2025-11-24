@@ -200,9 +200,9 @@ Al incorporar ruido gausssiano con varianzas $\sigma^2 = 4, 25, 100$ a las posic
 
 \begin{figure}[H]
     \centering
-    \subfloat[$\sigma^2 = 4$]{\includegraphics[width=0.45\textwidth]{noise_v_4.png}}\hfill
-    \subfloat[$\sigma^2 = 25$]{\includegraphics[width=0.45\textwidth]{noise_v_25.png}}\hfill
-    \subfloat[$\sigma^2 = 100$]{\includegraphics[width=0.45\textwidth]{noise_v_100.png}}
+    \subfloat[$\sigma^2 = 4$]{\includegraphics[width=0.5\textwidth]{noise_v_4.png}}\hfill
+    % \subfloat[$\sigma^2 = 25$]{\includegraphics[width=0.5\textwidth]{noise_v_25.png}}\hfill
+    \subfloat[$\sigma^2 = 100$]{\includegraphics[width=0.5\textwidth]{noise_v_100.png}}
     \caption{Gráficas de dispersión de las estimaciones $\hat{\mathbf{p}}$ bajo diferentes niveles de ruido.}
     \label{fig:scatter_plots}
 \end{figure}
@@ -216,9 +216,9 @@ Luego, se analizaron las configuraciones \texttt{config\_2}, \texttt{config\_3} 
 \begin{tabular}{|c|c|c|}
 \hline
 \textbf{Configuración} & \textbf{Número de Condición ($\kappa$)} & \textbf{Estado del Problema} \\ \hline
-\texttt{config\_2} & $\approx 7.77$ & Bien condicionado \\ \hline
-\texttt{config\_3} & $> 700$ & Mal condicionado \\ \hline
-\texttt{config\_4} & $> 700$ & Mal condicionado \\ \hline
+\texttt{config\_2} & $7.77$ & Bien condicionado \\ \hline
+\texttt{config\_3} & $17.7$ & Mal condicionado \\ \hline
+\texttt{config\_4} & $701.73$ & Mal condicionado \\ \hline
 \end{tabular}
 \caption{Comparación del número de condición según la configuración de anclas.}
 \label{tab:condicionamiento}
@@ -236,9 +236,9 @@ Veamos que sucede en las gráficas de dispersión para estas configuraciones mal
 
 \begin{figure}[H]
     \centering
-    \subfloat[\texttt{config\_2}]{\includegraphics[width=0.45\textwidth]{cond_2.png}}\hfill
-    \subfloat[\texttt{config\_3}]{\includegraphics[width=0.45\textwidth]{cond_3.png}}
-    \subfloat[\texttt{config\_4}]{\includegraphics[width=0.45\textwidth]{cond_4.png}}
+    \subfloat[\texttt{config\_2}]{\includegraphics[width=0.5\textwidth]{cond_2.png}}\hfill
+    % \subfloat[\texttt{config\_3}]{\includegraphics[width=0.5\textwidth]{cond_3.png}}
+    \subfloat[\texttt{config\_4}]{\includegraphics[width=0.5\textwidth]{cond_4.png}}
     \caption{Gráficas de dispersión para configuraciones mal condicionadas.}
     \label{fig:mal_conditioned}
 \end{figure}
