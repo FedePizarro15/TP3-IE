@@ -17,53 +17,45 @@ def get_data(config: config):
     return x, y, theta
 
 def solve_ls(x: list[float], y: list[float], theta: list[float]) -> tuple[float, float]:
-    h_rows = []
-    z_rows = []
+    x_rows = []
+    y_rows = []
 
-    for x_i, y_i, theta_i in zip(x, y, theta):                
-        h_i = [1, -np.tan(theta_i)]
-        h_rows.append(h_i)
+    for x_i, y_i, theta_i in zip(x, y, theta):
+        x_rows.append([1, -np.tan(theta_i)])
+        y_rows.append(x_i - y_i * np.tan(theta_i))
+
+    X = np.array(x_rows) # Dimensión (M, 2)
+    Y = np.array(y_rows) # Dimensión (M, 1)
+
+    X_t = X.T
+    
+    X_t_X = X_t @ X 
+    
+    X_t_X_inv = np.linalg.inv(X_t_X)
+    
+    beta = X_t_X_inv @ X_t @ Y
+
+    return tuple(beta)
         
-        z_i = x_i - y_i * np.tan(theta_i)
-        z_rows.append(z_i)
+def condition_number(matrix: np.ndarray):
+    matrix_inv = np.linalg.pinv(matrix)
+    
+    norm_matrix = np.linalg.norm(matrix, ord=2)
+    norm_matrix_inv = np.linalg.norm(matrix_inv, ord=2)
+    
+    return norm_matrix * norm_matrix_inv
+    
+def setup_base_plot(ax: plt.Axes, x_ref, y_ref, true_pos: tuple[float, float] = (100, 50)) -> None:
+    ax.scatter(x_ref, y_ref, c='blue', marker='o', s=60, label='Referencias')
+    ax.scatter(true_pos[0], true_pos[1], c='black', marker='o', s=100, label='Real (P)')
+    
+    ax.set_xlabel('Coordenada x')
+    ax.set_ylabel('Coordenada y')
+    
+    ax.grid(True, linestyle='--', alpha=0.6)
 
-    h = np.array(h_rows) # Dimensión (M, 2)
-    z = np.array(z_rows) # Dimensión (M, 1)
-
-    h_T = h.T
-    
-    xtx = h_T @ h 
-    
-    xtx_inv = np.linalg.inv(xtx)
-    
-    p_hat = xtx_inv @ h_T @ z
-
-    return tuple(p_hat)
-
-def draw_confidence_ellipse(ax: plt.Axes, x_data: list[float], y_data: list[float], n_std: float = 2.0):
-    if len(x_data) < 2: return
-
-    cov = np.cov(x_data, y_data)
-    
-    vals, vecs = np.linalg.eigh(cov)
-    
-    order = vals.argsort()[::-1]
-    vals = vals[order]
-    vecs = vecs[:, order]
-    
-    theta = np.degrees(np.arctan2(*vecs[:,0][::-1]))
-    
-    width, height = 2 * n_std * np.sqrt(vals)
-    
-    ellipse = Ellipse(xy=(np.mean(x_data), np.mean(y_data)),
-                      width=width, height=height,
-                      angle=theta, edgecolor='green', facecolor='none', linestyle='--',
-                      label='Confidence Ellipse (95%)', linewidth=2, alpha=0.8, zorder=0)
-    
-    ax.add_patch(ellipse)
-
-def estimate_position(config: config = CONFIG_1) -> None:
-    x_true, y_true = (100, 50)
+def estimate_position(config: config = CONFIG_1, pos: tuple[float, float] = (100, 50)) -> None:
+    x_true, y_true = pos[0], pos[1]
     
     x_ref, y_ref, thetas = get_data(config)
     
@@ -75,7 +67,10 @@ def estimate_position(config: config = CONFIG_1) -> None:
     
     x_pred, y_pred = np.round((x_pred, y_pred), 2).tolist()
 
-    display_text(f'Predicción {x_pred, y_pred}')
+    display_text('Real')
+    display_text(f'{round(float(x_true), 2), round(float(y_true), 2)}', level=3)
+    display_text(f'Predicción')
+    display_text(f'{x_pred, y_pred}', level=3)
 
     plt.xlabel('Coordenada x')
     plt.ylabel('Coordenada y')
@@ -84,14 +79,7 @@ def estimate_position(config: config = CONFIG_1) -> None:
     
     plt.show()
     
-def setup_base_plot(ax: plt.Axes, x_ref, y_ref, true_pos: tuple[float, float] = (100, 50)) -> None:
-    ax.scatter(x_ref, y_ref, c='blue', marker='o', s=60, label='Referencias')
-    ax.scatter(true_pos[0], true_pos[1], c='black', marker='o', s=100, label='Real (P)')
-    
-    ax.set_xlabel('Coordenada x')
-    ax.set_ylabel('Coordenada y')
-    
-    ax.grid(True, linestyle='--', alpha=0.6)
+    return x_pred, y_pred
 
 def noisy_estimations(config: config = CONFIG_1, variances: list[int] = [4, 25, 100], n: int = 50) -> None:
     if len(variances) > 1:
@@ -133,14 +121,6 @@ def noisy_estimations(config: config = CONFIG_1, variances: list[int] = [4, 25, 
         ax.legend()
         plt.show()
         
-def condition_number(matrix: np.ndarray):
-    matrix_inv = np.linalg.pinv(matrix)
-    
-    norm_matrix = np.linalg.norm(matrix, ord=2)
-    norm_matrix_inv = np.linalg.norm(matrix_inv, ord=2)
-    
-    return norm_matrix * norm_matrix_inv
-        
 def estimate_positions(configs: list[config] = [CONFIG_2, CONFIG_3, CONFIG_4], variance: int = 4, n: int = 50):
     display_text(f'{n} Estimaciones con Ruido - (Δx, Δy ∼ N(0, {variance}))')
 
@@ -155,3 +135,25 @@ def estimate_positions(configs: list[config] = [CONFIG_2, CONFIG_3, CONFIG_4], v
             display_text(f'config_{i + 2} - κ = {k} < 10 - Bien condicionada', level=3)
         
         noisy_estimations(config, [variance])
+
+def draw_confidence_ellipse(ax: plt.Axes, x_data: list[float], y_data: list[float], n_std: float = 2.0):
+    if len(x_data) < 2: return
+
+    cov = np.cov(x_data, y_data)
+    
+    vals, vecs = np.linalg.eigh(cov)
+    
+    order = vals.argsort()[::-1]
+    vals = vals[order]
+    vecs = vecs[:, order]
+    
+    theta = np.degrees(np.arctan2(*vecs[:,0][::-1]))
+    
+    width, height = 2 * n_std * np.sqrt(vals)
+    
+    ellipse = Ellipse(xy=(np.mean(x_data), np.mean(y_data)),
+                      width=width, height=height,
+                      angle=theta, edgecolor='green', facecolor='none', linestyle='--',
+                      label='Confidence Ellipse (95%)', linewidth=2, alpha=0.8, zorder=0)
+    
+    ax.add_patch(ellipse)
